@@ -1,0 +1,4 @@
+NF1
+NF2
+Nf3
+BCNF

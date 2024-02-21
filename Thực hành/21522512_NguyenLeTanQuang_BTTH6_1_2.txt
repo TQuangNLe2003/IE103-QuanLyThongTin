@@ -1,0 +1,220 @@
+--2.1. Một sinh viên chỉ được tham gia một đề tài
+--insert
+create trigger Cau_2_1_insert
+on SV_DETAI
+for insert
+as
+begin
+declare @MSSV char(8), @SLDT int
+select @MSSV = MSSV from inserted
+select @SLDT = count(MSDT)
+from SV_DETAI
+where MSSV = @MSSV
+
+if(@SLDT > 1)
+begin
+print 'Mot sinh vien chi duoc tham gia mot de tai'
+rollback transaction
+end
+end
+
+--update
+create trigger Cau_2_1_update
+on SV_DETAI
+for update
+as
+begin
+declare @MSSV char(8), @SLDT int
+select @MSSV = MSSV from inserted
+select @SLDT = count(MSDT)
+from SV_DETAI
+where MSSV = @MSSV
+
+if(@SLDT > 1)
+begin
+print 'Mot sinh vien chi duoc tham gia mot de tai'
+rollback transaction
+end
+end
+
+
+
+--2.2. Điểm của đề tài trong thang điểm từ 0 đến 10.
+
+ALTER TABLE GV_HDDT
+ADD CONSTRAINT CK_GV_HDDT_DIEM CHECK (DIEM BETWEEN 0 AND 10);
+
+ALTER TABLE GV_PBDT
+ADD CONSTRAINT CK_GV_PBDT_DIEM CHECK (DIEM BETWEEN 0 AND 10);
+
+ALTER TABLE GV_UVDT
+ADD CONSTRAINT CK_GV_UVDT_DIEM CHECK (DIEM BETWEEN 0 AND 10);
+
+--2.3. GV là chủ tịch hội đồng phải có học vị tiến sĩ.
+--insert
+CREATE TRIGGER Cau_2_3_INSERT
+ON HOIDONG
+FOR INSERT
+AS
+BEGIN
+
+    DECLARE @MSGV CHAR(8), @MSHV INT
+    SELECT @MSGV = MSGV FROM INSERTED
+
+    SELECT @MSHV = MSHV
+    FROM GV_HV_CN
+    WHERE MSGV = @MSGV
+
+    IF (@MSHV != 4)
+
+        BEGIN
+            PRINT 'CHỦ TỊCH HỘI ĐỒNG PHẢI CÓ HỌC VỊ TIẾN SĨ'
+            ROLLBACK TRANSACTION
+        END
+
+END
+
+
+--update
+
+
+CREATE TRIGGER Cau_2_3_UPDATE
+ON HOIDONG
+FOR update
+AS
+BEGIN
+
+    DECLARE @MSGV CHAR(8), @MSHV INT
+    SELECT @MSGV = MSGV FROM INSERTED
+
+    SELECT @MSHV = MSHV
+    FROM GV_HV_CN
+    WHERE MSGV = @MSGV
+
+    IF (@MSHV != 4)
+
+        BEGIN
+            PRINT 'CHỦ TỊCH HỘI ĐỒNG PHẢI CÓ HỌC VỊ TIẾN SĨ'
+            ROLLBACK TRANSACTION
+        END
+
+END
+
+-- Sửa dữ liệu trên GV_HV_CN
+CREATE TRIGGER Cau_2_3_GV_HV_CN
+ON GV_HV_CN
+FOR UPDATE
+AS
+BEGIN
+    IF (EXISTS (
+        SELECT *
+        FROM HOIDONG, inserted
+        WHERE HOIDONG.MSGV = inserted.MSGV
+    ))
+    BEGIN
+        DECLARE @MSGV CHAR(8), @MSHV INT
+        SELECT @MSGV = MSGV FROM inserted
+        SELECT @MSHV = MSHV FROM GV_HV_CN WHERE MSGV = @MSGV
+
+        IF (@MSHV != 4)
+        BEGIN
+            PRINT 'Chủ tịch hội đồng phải có học vị tiến sĩ'
+            ROLLBACK TRANSACTION
+        END
+    END
+END
+
+--delete GV_HV_CN
+CREATE TRIGGER Cau_2_3_GV_HV_CN_delete
+ON GV_HV_CN
+FOR DELETE
+AS
+BEGIN
+    IF (EXISTS (
+        SELECT *
+        FROM HOIDONG, deleted
+        WHERE HOIDONG.MSGV = deleted.MSGV
+    ))
+    BEGIN
+        DECLARE @MSHV INT
+        SELECT @MSHV = MSHV FROM deleted
+
+        IF (@MSHV = 4)
+        BEGIN
+            PRINT 'Chủ tịch hội đồng phải có học vị tiến sĩ'
+            ROLLBACK TRANSACTION
+        END
+    END
+END
+
+
+--2.4
+-- Tạo stored procedure để tính số lượng đề tài làm phản biện và số lượng đề tài làm ủy viên của từng GV
+CREATE PROCEDURE Cau_2_4
+AS
+BEGIN
+    SELECT
+        GIAOVIEN.MSGV,
+        GIAOVIEN.TENGV,
+        COUNT(DISTINCT CASE WHEN GV_PBDT.DIEM IS NOT NULL THEN GV_PBDT.MSDT END) AS SoDeTaiPhanBien,
+        COUNT(DISTINCT CASE WHEN GV_UVDT.DIEM IS NOT NULL THEN GV_UVDT.MSDT END) AS SoDeTaiUyVien
+    FROM
+        GIAOVIEN
+        LEFT JOIN GV_PBDT ON GIAOVIEN.MSGV = GV_PBDT.MSGV
+        LEFT JOIN GV_UVDT ON GIAOVIEN.MSGV = GV_UVDT.MSGV
+    GROUP BY
+        GIAOVIEN.MSGV, GIAOVIEN.TENGV;
+END;
+
+-- Chạy stored procedure
+EXEC Cau_2_4
+
+
+
+
+--Câu  2.5. In ra danh sách tên các sinh viên có điểm trung bình đề tài cao nhất
+CREATE PROCEDURE DANH_SACH_SV_DIEM_CAONHAT
+AS
+BEGIN
+    -- Tạo bảng tạm để lưu trữ điểm trung bình của từng sinh viên
+    CREATE TABLE #TEMP_SV_DIEMTB (
+        MSSV CHAR(8) PRIMARY KEY,
+        DIEMTB FLOAT
+    );
+
+    -- Tính điểm trung bình của từng sinh viên và lưu vào bảng tạm
+    INSERT INTO #TEMP_SV_DIEMTB (MSSV, DIEMTB)
+    SELECT
+        SV.MSSV,
+        COALESCE((
+            SUM(GV_HDDT.DIEM) + SUM(GV_PBDT.DIEM) + SUM(GV_UVDT.DIEM)
+        ) / (
+            COUNT(GV_HDDT.MSGV) + COUNT(GV_PBDT.MSGV) + COUNT(GV_UVDT.MSGV)
+        ), 0) AS DIEMTB
+    FROM
+        SINHVIEN AS SV
+        LEFT JOIN SV_DETAI ON SV.MSSV = SV_DETAI.MSSV
+        LEFT JOIN GV_HDDT ON SV_DETAI.MSDT = GV_HDDT.MSDT
+        LEFT JOIN GV_UVDT ON SV_DETAI.MSDT = GV_UVDT.MSDT
+        LEFT JOIN GV_PBDT ON SV_DETAI.MSDT = GV_PBDT.MSDT
+    GROUP BY
+        SV.MSSV;
+
+    -- In ra danh sách tên các sinh viên có điểm trung bình đề tài cao nhất
+    SELECT
+        SV.TENSV,
+        SV_DIEMTB.DIEMTB
+    FROM
+        SINHVIEN AS SV
+        INNER JOIN #TEMP_SV_DIEMTB AS SV_DIEMTB ON SV.MSSV = SV_DIEMTB.MSSV
+    WHERE
+        SV_DIEMTB.DIEMTB = (SELECT MAX(DIEMTB) FROM #TEMP_SV_DIEMTB);
+
+    -- Xóa bảng tạm
+    DROP TABLE #TEMP_SV_DIEMTB;
+END;
+
+exec DANH_SACH_SV_DIEM_CAONHAT
+
+
+

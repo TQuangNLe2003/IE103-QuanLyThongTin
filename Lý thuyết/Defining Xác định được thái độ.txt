@@ -1,0 +1,19 @@
+Defining: Xác định được thái độ, ý kiến của sinh viên UIT từ đó đưa ra các giải pháp nhằm khắc phục, cải thiện những điều trường làm chưa tốt
+
+Locating: 
+- Các fanpage
+- Tạo form khảo sát
+- Phản hồi qua email
+	
+
+Selecting: 
+- Chọn ra những ý kiến của sinh viên của trường UIT, không chọn những người tham gia khác không liên quan đến trường
+- Loại bỏ những ý kiến không nghiêm túc hoặc spam
+
+
+Organising: Phân loại các ý kiến đã thu thập được thành các chủ đề khác nhau
+- Cơ sở vật chất
+- Thái độ nhân viên trường
+- Chương trình đào tạo
+…
+Từ đó xử lý, thống kê dựa trên các ý kiến đã chọn theo từng chủ đề và đưa ra kết quả
